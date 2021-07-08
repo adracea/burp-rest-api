@@ -6,7 +6,7 @@
 
 package com.vmware.burp.extension.domain;
 
-import burp.BurpExtender;
+import burp.LegacyBurpExtender;
 import burp.ICookie;
 import burp.IExtensionHelpers;
 import burp.IHttpRequestResponse;
@@ -23,11 +23,13 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-@JsonIgnoreProperties(value = { "request", "response" })
+//Returning full HTTP request and response
+//@JsonIgnoreProperties(value = { "request", "response" })
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.FIELD)
 @JsonInclude(Include.NON_NULL)
@@ -78,7 +80,7 @@ public class HttpMessage {
    public HttpMessage() {
    }
 
-   public HttpMessage(IHttpRequestResponse iHttpRequestResponse) {
+   public HttpMessage(IHttpRequestResponse iHttpRequestResponse) throws UnsupportedEncodingException {
       this.host = iHttpRequestResponse.getHttpService().getHost();
       this.port = iHttpRequestResponse.getHttpService().getPort();
       this.protocol = iHttpRequestResponse.getHttpService().getProtocol();
@@ -87,7 +89,7 @@ public class HttpMessage {
       this.comment = iHttpRequestResponse.getComment();
       this.highlight = iHttpRequestResponse.getHighlight();
       
-      IExtensionHelpers helpers = BurpExtender.getInstance().getHelpers();
+      IExtensionHelpers helpers = LegacyBurpExtender.getInstance().getHelpers();
       IRequestInfo requestInfo = helpers.analyzeRequest(iHttpRequestResponse);
       this.url = requestInfo.getUrl();
       this.method = requestInfo.getMethod();

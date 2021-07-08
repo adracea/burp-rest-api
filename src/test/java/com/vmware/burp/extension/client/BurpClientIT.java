@@ -8,7 +8,6 @@ package com.vmware.burp.extension.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.vmware.burp.extension.BurpApplication;
 import com.vmware.burp.extension.domain.HttpMessageList;
 import com.vmware.burp.extension.domain.ReportType;
 import org.apache.http.HttpHost;
@@ -25,24 +24,19 @@ import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.IntegrationTest;
-import org.springframework.boot.test.SpringApplicationConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.context.web.WebAppConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import javax.net.ssl.SSLContext;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 
 import static org.junit.Assert.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@SpringApplicationConfiguration(classes = BurpApplication.class)
-@WebAppConfiguration
-@IntegrationTest
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 public class BurpClientIT {
     private static final Logger log = LoggerFactory.getLogger(BurpClientIT.class);
     private static final String PROXY_HOST = "localhost";
@@ -58,6 +52,7 @@ public class BurpClientIT {
     @Before
     public void setUp() {
         burpClient = new BurpClient("http://localhost:" + port);
+        log.info("!! Make sure that there are no applications configured to use the proxy !!");
     }
 
     @Test
@@ -104,7 +99,7 @@ public class BurpClientIT {
     }
 
     @Test
-    public void testScopeMethods() throws UnsupportedEncodingException {
+    public void testScopeMethods() {
         String httpBaseUrl = "http://source.vmware.com";
         String httpsBaseUrl = "https://source.vmware.com";
 
@@ -147,7 +142,7 @@ public class BurpClientIT {
 
     private void sendRequestThruProxy() throws IOException, KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
 
-        SSLContext sslContext = null;
+        SSLContext sslContext;
         sslContext = SSLContexts.custom().loadTrustMaterial((chain, authType) -> true).build();
 
         SSLConnectionSocketFactory sslConnectionSocketFactory =
@@ -157,7 +152,7 @@ public class BurpClientIT {
 
         try (CloseableHttpClient httpClient = HttpClients.custom()
                 .setSSLSocketFactory(sslConnectionSocketFactory)
-                .build();) {
+                .build()) {
             HttpHost target = new HttpHost(BurpClientIT.TARGET_HOST);
             HttpHost proxy = new HttpHost(PROXY_HOST, PROXY_PORT, PROXY_SCHEME);
 

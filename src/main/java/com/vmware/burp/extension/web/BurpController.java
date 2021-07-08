@@ -28,7 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
+import java.net.NoRouteToHostException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.springframework.web.bind.annotation.RequestMethod.*;
 
@@ -58,12 +63,23 @@ public class BurpController {
 
    @ApiOperation(value = "Get Burp suite project-level configuration", notes = "Burp suite project-level configuration is returned as JSON.")
    @ApiResponses(value = {
-         @ApiResponse(code = 200, message = "Success", response = JsonNode.class),
-         @ApiResponse(code = 500, message = "Failure")
+           @ApiResponse(code = 200, message = "Success", response = JsonNode.class),
+           @ApiResponse(code = 500, message = "Failure")
    })
    @RequestMapping(method = GET, value = "/configuration")
    public JsonNode getConfiguration() throws IOException {
-      String configuration = burp.getConfigAsJson();
+      String configuration = burp.getConfigAsJson("");
+      return new ObjectMapper().readTree(configuration);
+   }
+
+   @ApiOperation(value = "Get Burp suite project-level configuration with provided configuration path", notes = "Burp suite project-level configuration returned as JSON, from the given configuration path (e.g. 'proxy.request_listeners')")
+   @ApiResponses(value = {
+           @ApiResponse(code = 200, message = "Success", response = JsonNode.class),
+           @ApiResponse(code = 500, message = "Failure")
+   })
+   @RequestMapping(method = POST, value = "/configuration")
+   public JsonNode getConfiguration(@RequestBody String configAsJson) throws IOException {
+      String configuration = burp.getConfigAsJson(configAsJson);
       return new ObjectMapper().readTree(configuration);
    }
 
@@ -90,7 +106,7 @@ public class BurpController {
          @ApiResponse(code = 500, message = "Failure")
    })
    @RequestMapping(method = GET, value = "/proxy/history")
-   public HttpMessageList getProxyHistory() {
+   public HttpMessageList getProxyHistory() throws UnsupportedEncodingException {
       HttpMessageList httpMessageList = new HttpMessageList();
       httpMessageList.setHttpMessages(burp.getProxyHistory());
       return httpMessageList;
@@ -105,7 +121,7 @@ public class BurpController {
          @ApiResponse(code = 500, message = "Failure")
    })
    @RequestMapping(method = GET, value = "/target/sitemap")
-   public HttpMessageList getSiteMap(@RequestParam(required = false) String urlPrefix) {
+   public HttpMessageList getSiteMap(@RequestParam(required = false) String urlPrefix) throws UnsupportedEncodingException {
       HttpMessageList httpMessageList = new HttpMessageList();
       httpMessageList.setHttpMessages(burp.getSiteMap(urlPrefix));
       return httpMessageList;
@@ -178,7 +194,7 @@ public class BurpController {
    })
    @RequestMapping(method = POST, value = "/scanner/scans/passive")
    public void scanPassive(@RequestParam(value = "baseUrl") String baseUrl)
-           throws MalformedURLException {
+           throws MalformedURLException, NoRouteToHostException {
       if (StringUtils.isEmpty(baseUrl)) {
          throw new IllegalArgumentException("The 'baseUrl' parameter in payload must not be null or empty.");
       }
@@ -204,10 +220,19 @@ public class BurpController {
          @ApiResponse(code = 500, message = "Failure")
    })
    @RequestMapping(method = POST, value = "/scanner/scans/active")
-   public void scanActive(@RequestParam(value = "baseUrl") String baseUrl)
-         throws MalformedURLException {
+   public void scanActive(
+           @RequestParam(value = "baseUrl") String baseUrl,
+           @RequestParam(value = "insertionPoint", required = false) List<String> insertionPoints
+   )
+           throws MalformedURLException, NoRouteToHostException {
       if (StringUtils.isEmpty(baseUrl)) {
          throw new IllegalArgumentException("The 'baseUrl' parameter in payload must not be null or empty.");
+      }
+      List<int[]> convertedInsertionPoint = null;
+      if (insertionPoints != null && insertionPoints.size() != 0) {
+         convertedInsertionPoint = insertionPoints.stream().map(param ->
+                 Arrays.stream(param.split(":")).mapToInt(i -> Integer.parseInt(i, 10)).toArray()
+         ).collect(Collectors.toList());
       }
 
       boolean inScope = burp.isInScope(baseUrl);
@@ -217,7 +242,7 @@ public class BurpController {
          throw new IllegalStateException("The 'baseUrl' is NOT in scope. Set the 'baseUrl' scope to true before retry.");
       }
 
-      burp.scan(baseUrl,true);
+      burp.scan(baseUrl, true, convertedInsertionPoint);
    }
 
    @ApiOperation(value = "Deletes the active scan queue map from memory", notes = "Deletes the scan queue map from memory, not from Burp suite UI.")
@@ -239,7 +264,7 @@ public class BurpController {
          @ApiResponse(code = 500, message = "Failure")
    })
    @RequestMapping(method = GET, value = "/scanner/issues")
-   public ScanIssueList getScanIssues(@RequestParam(required = false) String urlPrefix) {
+   public ScanIssueList getScanIssues(@RequestParam(required = false) String urlPrefix) throws UnsupportedEncodingException {
       ScanIssueList scanIssueList = new ScanIssueList();
       scanIssueList.setScanIssues(burp.getIssues(urlPrefix));
       return scanIssueList;
